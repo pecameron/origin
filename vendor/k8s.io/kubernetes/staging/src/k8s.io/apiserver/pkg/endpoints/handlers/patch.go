@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"github.com/evanphx/json-patch"
+	//PHIL
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -270,6 +272,7 @@ func (p *smpPatcher) applyPatchToCurrentObject(currentObject runtime.Object) (ru
 	if err != nil {
 		return nil, err
 	}
+	//PHIL
 	if err := strategicPatchObject(p.codec, p.defaulter, currentVersionedObject, p.patchJS, versionedObjToUpdate, p.schemaReferenceObj); err != nil {
 		return nil, err
 	}
@@ -279,6 +282,7 @@ func (p *smpPatcher) applyPatchToCurrentObject(currentObject runtime.Object) (ru
 		return nil, err
 	}
 
+	glog.V(2).Infof("PHIL applyPatchToCurrentObject: unversionedObjToUpdate %v", unversionedObjToUpdate)
 	return unversionedObjToUpdate, nil
 }
 

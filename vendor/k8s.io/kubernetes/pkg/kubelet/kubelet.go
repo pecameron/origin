@@ -390,6 +390,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 
 		if utilfeature.DefaultFeatureGate.Enabled(features.RotateKubeletServerCertificate) {
 			nodeAddresses, err := instances.NodeAddresses(context.TODO(), nodeName)
+			glog.V(2).Infof("PHIL NewMainKubelet called instances.NodeAddresses %v", nodeAddresses)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get the addresses of the current instance from the cloud provider: %v", err)
 			}
@@ -404,6 +405,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 					cloudNames = append(cloudNames, nodeAddress.Address)
 				}
 			}
+			glog.V(2).Infof("PHIL NewMainKubelet cloudIPs %v", cloudIPs)
 		}
 
 	}
@@ -747,6 +749,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		}
 
 		ips = append(ips, cloudIPs...)
+		glog.V(2).Infof("PHIL NewMainKubelet ips %v", ips)
 		names := append([]string{klet.GetHostname(), hostnameOverride}, cloudNames...)
 		klet.serverCertificateManager, err = kubeletcertificate.NewKubeletServerCertificateManager(klet.kubeClient, kubeCfg, klet.nodeName, ips, names, certDirectory)
 		if err != nil {
@@ -814,6 +817,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 
 	klet.backOff = flowcontrol.NewBackOff(backOffPeriod, MaxContainerBackOff)
 	klet.podKillingCh = make(chan *kubecontainer.PodPair, podKillingChannelCapacity)
+	//PHIL
 	klet.setNodeStatusFuncs = klet.defaultNodeStatusFuncs()
 
 	// setup eviction manager

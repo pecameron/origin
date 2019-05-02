@@ -605,10 +605,12 @@ func getNodeIP(client clientset.Interface, hostname string) net.IP {
 		glog.Warningf("Failed to retrieve node info: %v", err)
 		return nil
 	}
+	glog.V(2).Infof("PHIL getNodeIP 03 calling InternalGetNodeHostIP")
 	nodeIP, err = utilnode.InternalGetNodeHostIP(node)
 	if err != nil {
 		glog.Warningf("Failed to retrieve node IP: %v", err)
 		return nil
 	}
+	glog.V(2).Infof("PHIL getNodeIP 03 returns %v", nodeIP)
 	return nodeIP
 }

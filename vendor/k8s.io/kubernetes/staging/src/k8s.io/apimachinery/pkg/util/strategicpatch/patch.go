@@ -1704,7 +1704,7 @@ func sortMergeListsByNameArray(s []interface{}, schema LookupPatchMeta, mergeKey
 func sortMapsBasedOnField(m []interface{}, fieldName string) []interface{} {
 	mapM := mapSliceFromSlice(m)
 	ss := SortableSliceOfMaps{mapM, fieldName}
-	sort.Sort(ss)
+	sort.Stable(ss)
 	newS := sliceFromMapSlice(ss.s)
 	return newS
 }
@@ -1740,7 +1740,7 @@ func (ss SortableSliceOfMaps) Len() int {
 func (ss SortableSliceOfMaps) Less(i, j int) bool {
 	iStr := fmt.Sprintf("%v", ss.s[i][ss.k])
 	jStr := fmt.Sprintf("%v", ss.s[j][ss.k])
-	return sort.StringsAreSorted([]string{iStr, jStr})
+	return !sort.StringsAreSorted([]string{jStr, iStr})
 }
 
 func (ss SortableSliceOfMaps) Swap(i, j int) {
@@ -1756,7 +1756,7 @@ func deduplicateAndSortScalars(s []interface{}) []interface{} {
 
 func sortScalars(s []interface{}) []interface{} {
 	ss := SortableSliceOfScalars{s}
-	sort.Sort(ss)
+	sort.Stable(ss)
 	return ss.s
 }
 
@@ -1788,7 +1788,7 @@ func (ss SortableSliceOfScalars) Len() int {
 func (ss SortableSliceOfScalars) Less(i, j int) bool {
 	iStr := fmt.Sprintf("%v", ss.s[i])
 	jStr := fmt.Sprintf("%v", ss.s[j])
-	return sort.StringsAreSorted([]string{iStr, jStr})
+	return !sort.StringsAreSorted([]string{jStr, iStr})
 }
 
 func (ss SortableSliceOfScalars) Swap(i, j int) {

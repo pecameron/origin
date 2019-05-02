@@ -160,6 +160,7 @@ func (k *NodeConnectionInfoGetter) GetConnectionInfo(nodeName types.NodeName) (*
 	}
 
 	// Find a kubelet-reported address, using preferred address type
+	//glog.V(2).Infof("PHIL GetConnectionInfo calling GetPreferredNodeAddress")
 	host, err := nodeutil.GetPreferredNodeAddress(node, k.preferredAddressTypes)
 	if err != nil {
 		return nil, err

@@ -232,6 +232,7 @@ func (kl *Kubelet) GetHostIP() (net.IP, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get node: %v", err)
 	}
+	glog.V(2).Infof("PHIL GetHostIP calling GetNodeHostIP")
 	return utilnode.GetNodeHostIP(node)
 }
 
@@ -242,6 +243,7 @@ func (kl *Kubelet) getHostIPAnyWay() (net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
+	glog.V(2).Infof("PHIL getHostIPAnyWay calling GetNodeHostIP")
 	return utilnode.GetNodeHostIP(node)
 }
 

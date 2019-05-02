@@ -450,6 +450,7 @@ func (n nodeAddressProvider) externalAddresses() ([]string, error) {
 	addrs := []string{}
 	for ix := range nodes.Items {
 		node := &nodes.Items[ix]
+		glog.V(2).Infof("PHIL externalAddresses calling GetPreferredNodeAddress")
 		addr, err := nodeutil.GetPreferredNodeAddress(node, preferredAddressTypes)
 		if err != nil {
 			return nil, err

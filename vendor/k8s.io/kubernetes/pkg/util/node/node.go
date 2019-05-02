@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,9 +59,12 @@ func GetHostname(hostnameOverride string) string {
 // GetPreferredNodeAddress returns the address of the provided node, using the provided preference order.
 // If none of the preferred address types are found, an error is returned.
 func GetPreferredNodeAddress(node *v1.Node, preferredAddressTypes []v1.NodeAddressType) (string, error) {
+	glog.V(2).Infof("PHIL GetPreferredNodeAddress  Type %v addresses %v", preferredAddressTypes, node.Status.Addresses)
 	for _, addressType := range preferredAddressTypes {
+		glog.V(2).Infof("PHIL GetPreferredNodeAddress  Type %v addresses %v", addressType, node.Status.Addresses)
 		for _, address := range node.Status.Addresses {
 			if address.Type == addressType {
+				glog.V(2).Infof("PHIL GetPreferredNodeAddress  Address %v", address.Address)
 				return address.Address, nil
 			}
 		}
@@ -68,6 +72,7 @@ func GetPreferredNodeAddress(node *v1.Node, preferredAddressTypes []v1.NodeAddre
 		if addressType == v1.NodeHostName {
 			// ...fall back to the kubernetes.io/hostname label for compatibility with kubelets before 1.5
 			if hostname, ok := node.Labels[kubeletapis.LabelHostname]; ok && len(hostname) > 0 {
+				glog.V(2).Infof("PHIL GetPreferredNodeAddress  hostname %s", hostname)
 				return hostname, nil
 			}
 		}
@@ -80,14 +85,17 @@ func GetPreferredNodeAddress(node *v1.Node, preferredAddressTypes []v1.NodeAddre
 // 2. NodeExternalIP
 func GetNodeHostIP(node *v1.Node) (net.IP, error) {
 	addresses := node.Status.Addresses
+	glog.V(2).Infof("PHIL GetNodeHostIP  addresses %v", addresses)
 	addressMap := make(map[v1.NodeAddressType][]v1.NodeAddress)
 	for i := range addresses {
 		addressMap[addresses[i].Type] = append(addressMap[addresses[i].Type], addresses[i])
 	}
 	if addresses, ok := addressMap[v1.NodeInternalIP]; ok {
+		glog.V(2).Infof("PHIL GetNodeHostIP returns NodeInternalIP %v", net.ParseIP(addresses[0].Address))
 		return net.ParseIP(addresses[0].Address), nil
 	}
 	if addresses, ok := addressMap[v1.NodeExternalIP]; ok {
+		glog.V(2).Infof("PHIL GetNodeHostIP returns NodeExternalIP %v", net.ParseIP(addresses[0].Address))
 		return net.ParseIP(addresses[0].Address), nil
 	}
 	return nil, fmt.Errorf("host IP unknown; known addresses: %v", addresses)
@@ -98,14 +106,17 @@ func GetNodeHostIP(node *v1.Node) (net.IP, error) {
 // 2. NodeExternalIP
 func InternalGetNodeHostIP(node *api.Node) (net.IP, error) {
 	addresses := node.Status.Addresses
+	glog.V(2).Infof("PHIL InternalGetNodeHostIP  addresses %v", addresses)
 	addressMap := make(map[api.NodeAddressType][]api.NodeAddress)
 	for i := range addresses {
 		addressMap[addresses[i].Type] = append(addressMap[addresses[i].Type], addresses[i])
 	}
 	if addresses, ok := addressMap[api.NodeInternalIP]; ok {
+		glog.V(2).Infof("PHIL InternalGetNodeHostIP returns NodeInternalIP %v", net.ParseIP(addresses[0].Address))
 		return net.ParseIP(addresses[0].Address), nil
 	}
 	if addresses, ok := addressMap[api.NodeExternalIP]; ok {
+		glog.V(2).Infof("PHIL InternalGetNodeHostIP returns NodeExternalIP %v", net.ParseIP(addresses[0].Address))
 		return net.ParseIP(addresses[0].Address), nil
 	}
 	return nil, fmt.Errorf("host IP unknown; known addresses: %v", addresses)
@@ -166,16 +177,37 @@ func PatchNodeCIDR(c clientset.Interface, node types.NodeName, cidr string) erro
 }
 
 // PatchNodeStatus patches node status.
+//PHIL called by vendor/k8s.io/kubernetes/pkg/controller/cloud/node_controller.go
+//PHIL   func (cnc *CloudNodeController) AddCloudNode(obj interface{}) {
+//PHIL   func (cnc *CloudNodeController) UpdateNodeStatus() {
+//PHIL     func (cnc *CloudNodeController) updateNodeAddress(node *v1.Node, instances cloudprovider.Instances) {
+//PHIL called by vendor/k8s.io/kubernetes/pkg/controller/volume/attachdetach/statusupdater/node_status_updater.go
+//PHIL   func (nsu *nodeStatusUpdater) UpdateNodeStatuses() error {
+//PHIL     func (nsu *nodeStatusUpdater) updateNodeStatus(nodeName types.NodeName, nodeObj *v1.Node, attachedVolumes []v1.AttachedVolume) error {
+//PHIL called by vendor/k8s.io/kubernetes/pkg/kubelet/kubelet.go
+//PHIL   func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
+//PHIL     calls syncNodeStatus
+//PHIL called by vendor/k8s.io/kubernetes/pkg/kubelet/kubelet_node_status.go
+//PHIL     func (kl *Kubelet) syncNodeStatus() {   ----- not called in file
+//PHIL       func (kl *Kubelet) registerWithAPIServer() {
+//PHIL         func (kl *Kubelet) tryRegisterWithAPIServer(node *v1.Node) bool {
+//PHIL     func (kl *Kubelet) syncNodeStatus() {    ----- not called in file
+//PHIL       func (kl *Kubelet) updateNodeStatus() error {
+//PHIL         func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
+//PHIL called by vendor/k8s.io/kubernetes/pkg/kubelet/kubeletconfig/status/status.go
+//PHIL   func (s *nodeConfigStatus) Sync(client clientset.Interface, nodeName string) {
 func PatchNodeStatus(c v1core.CoreV1Interface, nodeName types.NodeName, oldNode *v1.Node, newNode *v1.Node) (*v1.Node, []byte, error) {
 	patchBytes, err := preparePatchBytesforNodeStatus(nodeName, oldNode, newNode)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	//updatedNode, err := c.Nodes().Patch(string(nodeName), types.JSONPatchType, patchBytes, "status")
 	updatedNode, err := c.Nodes().Patch(string(nodeName), types.StrategicMergePatchType, patchBytes, "status")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to patch status %q for node %q: %v", patchBytes, nodeName, err)
 	}
+	glog.V(2).Infof("PHIL PatchNodeStatus: updatedNode ---------------------- %v", updatedNode)
 	return updatedNode, patchBytes, nil
 }
 
@@ -195,9 +227,17 @@ func preparePatchBytesforNodeStatus(nodeName types.NodeName, oldNode *v1.Node, n
 		return nil, fmt.Errorf("failed to Marshal newData for node %q: %v", nodeName, err)
 	}
 
-	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Node{})
+	glog.V(2).Infof("PHIL preparePatchBytesforNodeStatus: oldData ---------------------- %s", string(oldData))
+	glog.V(2).Infof("PHIL preparePatchBytesforNodeStatus: newData ---------------------- %s", string(newData))
+	patchBytesJS, err := jsonpatch.CreateMergePatch(oldData, newData)
+	glog.V(2).Infof("PHIL preparePatchBytesforNodeStatus: CreateMergePatch patchBytesJS -------------------- %s", string(patchBytesJS))
+	//PHIL patchBytesSP, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Node{})
+	patchBytesSP, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, oldNode)
+	glog.V(2).Infof("PHIL preparePatchBytesforNodeStatus: CreateTwoWayMergePatch patchBytes -------------------- %s", string(patchBytesSP))
 	if err != nil {
 		return nil, fmt.Errorf("failed to CreateTwoWayMergePatch for node %q: %v", nodeName, err)
+		//PHIL return nil, fmt.Errorf("failed to jsonpatch.CreateMergePatch for node %q: %v", nodeName, err)
 	}
-	return patchBytes, nil
+	//glog.V(2).Infof("PHIL preparePatchBytesforNodeStatus: CreateMergePatch patchBytes -------------------- %s", string(patchBytes))
+	return patchBytesSP, nil
 }

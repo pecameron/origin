@@ -1295,8 +1295,9 @@ func (c *Cloud) HasClusterID() bool {
 	return len(c.tagging.clusterID()) > 0
 }
 
-// NodeAddresses is an implementation of Instances.NodeAddresses.
+// PHIL NodeAddresses is an implementation of Instances.NodeAddresses.
 func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.NodeAddress, error) {
+	glog.V(2).Infof("PHIL NodeAddresses name %s", name)
 	if c.selfAWSInstance.nodeName == name || len(name) == 0 {
 		addresses := []v1.NodeAddress{}
 
@@ -1318,8 +1319,10 @@ func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.No
 				if internalIP == "" {
 					continue
 				}
+				glog.V(2).Infof("PHIL  Address::  %v", v1.NodeAddress{Type: v1.NodeInternalIP, Address: internalIP})
 				addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: internalIP})
 			}
+			//glog.V(2).Infof("PHIL AA  addresses01: %v", addresses)
 		}
 
 		externalIP, err := c.metadata.GetMetadata("public-ipv4")
@@ -1329,6 +1332,7 @@ func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.No
 			glog.V(4).Info("Could not determine public IP from AWS metadata.")
 		} else {
 			addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: externalIP})
+			//glog.V(2).Infof("PHIL AA  addresses02: %v", addresses)
 		}
 
 		internalDNS, err := c.metadata.GetMetadata("local-hostname")
@@ -1338,6 +1342,7 @@ func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.No
 			glog.V(4).Info("Could not determine private DNS from AWS metadata.")
 		} else {
 			addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalDNS, Address: internalDNS})
+			//glog.V(2).Infof("PHIL AA  addresses03: %v", addresses)
 		}
 
 		externalDNS, err := c.metadata.GetMetadata("public-hostname")
@@ -1347,8 +1352,10 @@ func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.No
 			glog.V(4).Info("Could not determine public DNS from AWS metadata.")
 		} else {
 			addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalDNS, Address: externalDNS})
+			//glog.V(2).Infof("PHIL AA  addresses04: %v", addresses)
 		}
 
+		glog.V(2).Infof("PHIL AA NodeAddresses  returns: %v", addresses)
 		return addresses, nil
 	}
 
@@ -1356,6 +1363,7 @@ func (c *Cloud) NodeAddresses(ctx context.Context, name types.NodeName) ([]v1.No
 	if err != nil {
 		return nil, fmt.Errorf("getInstanceByNodeName failed for %q with %q", name, err)
 	}
+	glog.V(2).Infof("PHIL NodeAddresses calling extractNodeAddresses: instance %v", instance)
 	return extractNodeAddresses(instance)
 }
 
@@ -1382,9 +1390,11 @@ func extractNodeAddresses(instance *ec2.Instance) ([]v1.NodeAddress, error) {
 				if ip == nil {
 					return nil, fmt.Errorf("EC2 instance had invalid private address: %s (%q)", aws.StringValue(instance.InstanceId), ipAddress)
 				}
+				glog.V(2).Infof("PHIL NodeAddress %v", v1.NodeAddress{Type: v1.NodeInternalIP, Address: ip.String()})
 				addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: ip.String()})
 			}
 		}
+		glog.V(2).Infof("PHIL BB  status %v addresses01: %v", aws.StringValue(networkInterface.Status), addresses)
 	}
 
 	// TODO: Other IP addresses (multiple ips)?
@@ -1395,18 +1405,22 @@ func extractNodeAddresses(instance *ec2.Instance) ([]v1.NodeAddress, error) {
 			return nil, fmt.Errorf("EC2 instance had invalid public address: %s (%s)", aws.StringValue(instance.InstanceId), publicIPAddress)
 		}
 		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: ip.String()})
+		glog.V(2).Infof("PHIL BB  addresses02: %v", addresses)
 	}
 
 	privateDNSName := aws.StringValue(instance.PrivateDnsName)
 	if privateDNSName != "" {
 		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalDNS, Address: privateDNSName})
+		glog.V(2).Infof("PHIL BB  addresses03: %v", addresses)
 	}
 
 	publicDNSName := aws.StringValue(instance.PublicDnsName)
 	if publicDNSName != "" {
 		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalDNS, Address: publicDNSName})
+		glog.V(2).Infof("PHIL BB  addresses04: %v", addresses)
 	}
 
+	glog.V(2).Infof("PHIL extractNodeAddresses returns: %v", addresses)
 	return addresses, nil
 }
 
@@ -1414,6 +1428,7 @@ func extractNodeAddresses(instance *ec2.Instance) ([]v1.NodeAddress, error) {
 // This method will not be called from the node that is requesting this ID. i.e. metadata service
 // and other local methods cannot be used here
 func (c *Cloud) NodeAddressesByProviderID(ctx context.Context, providerID string) ([]v1.NodeAddress, error) {
+	glog.V(2).Infof("PHIL NodeAddressesByProviderID providerID: %s", providerID)
 	instanceID, err := kubernetesInstanceID(providerID).mapToAWSInstanceID()
 	if err != nil {
 		return nil, err
@@ -1424,6 +1439,7 @@ func (c *Cloud) NodeAddressesByProviderID(ctx context.Context, providerID string
 		return nil, err
 	}
 
+	glog.V(2).Infof("PHIL NodeAddressesByProviderID calls extractNodeAddresses, instance: %v", instance)
 	return extractNodeAddresses(instance)
 }
 

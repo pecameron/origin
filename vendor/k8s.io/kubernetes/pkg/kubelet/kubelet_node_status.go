@@ -38,6 +38,7 @@ import (
 	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/features"
+	//"k8s.io/kubernetes/pkg/kubelet"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 	"k8s.io/kubernetes/pkg/kubelet/cadvisor"
 	"k8s.io/kubernetes/pkg/kubelet/events"
@@ -382,6 +383,7 @@ func (kl *Kubelet) syncNodeStatus() {
 
 // updateNodeStatus updates node status to master with retries.
 func (kl *Kubelet) updateNodeStatus() error {
+	glog.V(2).Infof("PHIL Updating node status")
 	glog.V(5).Infof("Updating node status")
 	for i := 0; i < nodeStatusUpdateRetry; i++ {
 		if err := kl.tryUpdateNodeStatus(i); err != nil {
@@ -405,6 +407,7 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 	// apiserver cache (the data might be slightly delayed but it doesn't
 	// seem to cause more conflict - the delays are pretty small).
 	// If it result in a conflict, all retries are served directly from etcd.
+	glog.V(2).Infof("PHIL tryUpdateNodeStatus 01 tryNumber %d", tryNumber)
 	opts := metav1.GetOptions{}
 	if tryNumber == 0 {
 		util.FromApiserverCache(&opts)
@@ -414,15 +417,18 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 		return fmt.Errorf("error getting node %q: %v", kl.nodeName, err)
 	}
 
+	glog.V(2).Infof("PHIL tryUpdateNodeStatus 02 tryNumber %d", tryNumber)
 	originalNode := node.DeepCopy()
 	if originalNode == nil {
 		return fmt.Errorf("nil %q node object", kl.nodeName)
 	}
 
 	if node.Spec.PodCIDR != "" {
+		glog.V(2).Infof("PHIL tryUpdateNodeStatus PodCIDR %v", node.Spec.PodCIDR)
 		kl.updatePodCIDR(node.Spec.PodCIDR)
 	}
 
+	glog.V(2).Infof("PHIL tryUpdateNodeStatus NodeName %v   node %v", types.NodeName(kl.nodeName), node)
 	kl.setNodeStatus(node)
 	// Patch the current status on the API server
 	updatedNode, _, err := nodeutil.PatchNodeStatus(kl.heartbeatClient, types.NodeName(kl.nodeName), originalNode, node)
@@ -446,11 +452,12 @@ func (kl *Kubelet) recordNodeStatusEvent(eventType, event string) {
 
 // Set IP and hostname addresses for the node.
 func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
+	glog.V(2).Infof("PHIL setNodeAddress nodeIP %v", kl.nodeIP)
 	if kl.nodeIP != nil {
 		if err := kl.nodeIPValidator(kl.nodeIP); err != nil {
 			return fmt.Errorf("failed to validate nodeIP: %v", err)
 		}
-		glog.V(2).Infof("Using node IP: %q", kl.nodeIP.String())
+		glog.V(2).Infof("PHIL Using node IP: %q", kl.nodeIP.String())
 	}
 
 	if kl.externalCloudProvider {
@@ -465,6 +472,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 	}
 	if kl.cloud != nil {
 		nodeAddresses, err := kl.cloudResourceSyncManager.NodeAddresses()
+		glog.V(2).Infof("PHIL setNodeAddress nodeAddresses %v", nodeAddresses)
 
 		if err != nil {
 			return err
@@ -480,6 +488,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 					nodeIPTypes[nodeAddress.Type] = true
 				}
 			}
+			glog.V(2).Infof("PHIL setNodeAddress 01 enforcedNodeAddresses %v", enforcedNodeAddresses)
 			if len(enforcedNodeAddresses) > 0 {
 				for _, nodeAddress := range nodeAddresses {
 					if !nodeIPTypes[nodeAddress.Type] && nodeAddress.Type != v1.NodeHostName {
@@ -488,6 +497,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 				}
 
 				enforcedNodeAddresses = append(enforcedNodeAddresses, v1.NodeAddress{Type: v1.NodeHostName, Address: kl.GetHostname()})
+				glog.V(2).Infof("PHIL setNodeAddress 02 enforcedNodeAddresses %v", enforcedNodeAddresses)
 				node.Status.Addresses = enforcedNodeAddresses
 				return nil
 			}
@@ -503,12 +513,14 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 				break
 			}
 		}
+		glog.V(2).Infof("PHIL setNodeAddress addressNodeHostName %v", addressNodeHostName)
 		if addressNodeHostName == nil {
 			hostnameAddress := v1.NodeAddress{Type: v1.NodeHostName, Address: kl.GetHostname()}
 			nodeAddresses = append(nodeAddresses, hostnameAddress)
 		} else {
 			glog.V(2).Infof("Using Node Hostname from cloudprovider: %q", addressNodeHostName.Address)
 		}
+		glog.V(2).Infof("PHIL setNodeAddress 01 node.Status.Addresses: %v", nodeAddresses)
 		node.Status.Addresses = nodeAddresses
 	} else {
 		var ipAddr net.IP
@@ -526,6 +538,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 		} else {
 			var addrs []net.IP
 			addrs, _ = net.LookupIP(node.Name)
+			glog.V(2).Infof("PHIL setNodeAddress addrs %v", addrs)
 			for _, addr := range addrs {
 				if err = kl.nodeIPValidator(addr); err == nil {
 					if addr.To4() != nil {
@@ -542,6 +555,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 				ipAddr, err = utilnet.ChooseHostInterface()
 			}
 		}
+		glog.V(2).Infof("PHIL setNodeAddress ipAddr %v", ipAddr)
 
 		if ipAddr == nil {
 			// We tried everything we could, but the IP address wasn't fetchable; error out
@@ -551,6 +565,7 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 			{Type: v1.NodeInternalIP, Address: ipAddr.String()},
 			{Type: v1.NodeHostName, Address: kl.GetHostname()},
 		}
+		glog.V(2).Infof("PHIL setNodeAddress 02 node.Status.Addresses: %v", node.Status.Addresses)
 	}
 	return nil
 }
@@ -1072,8 +1087,11 @@ func (kl *Kubelet) setNodeVolumesInUseStatus(node *v1.Node) {
 // TODO(madhusudancs): Simplify the logic for setting node conditions and
 // refactor the node status condition code out to a different file.
 func (kl *Kubelet) setNodeStatus(node *v1.Node) {
+	//PHIL
 	for i, f := range kl.setNodeStatusFuncs {
-		glog.V(5).Infof("Setting node status at position %v", i)
+		//glog.V(5).Infof("Setting node status at position %v", i)
+		//PHIL
+		glog.V(2).Infof("PHIL Setting node status at position %v %v", i, f)
 		if err := f(node); err != nil {
 			glog.Warningf("Failed to set some node status fields: %s", err)
 		}

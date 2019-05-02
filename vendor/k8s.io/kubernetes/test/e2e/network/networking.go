@@ -84,13 +84,13 @@ var _ = SIGDescribe("Networking", func() {
 		}
 	})
 
-	It("should check kube-proxy urls", func() {
+	It("should check kube-proxy urls", func() { //PHIL
 		// TODO: this is overkill we just need the host networking pod
 		// to hit kube-proxy urls.
 		config := framework.NewNetworkingTestConfig(f)
 
 		By("checking kube-proxy URLs")
-		config.GetSelfURL(ports.ProxyHealthzPort, "/healthz", "200 OK")
+		config.GetSelfURL( /*ports.ProxyHealthzPort*/ 10253, "/healthz", "200 OK")
 		// Verify /healthz returns the proper content.
 		config.GetSelfURL(ports.ProxyHealthzPort, "/healthz", "lastUpdated")
 		// Verify /proxyMode returns http status code 200.

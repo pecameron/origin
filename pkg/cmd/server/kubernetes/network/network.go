@@ -267,10 +267,12 @@ func getNodeIP(client kv1core.CoreV1Interface, hostname string) (net.IP, error) 
 		return nil, fmt.Errorf("failed to retrieve node info (after waiting): %v", nodeErr)
 	}
 
+	glog.V(2).Infof("PHIL getNodeIP: calling GetNodeHostIP")
 	nodeIP, err := utilnode.GetNodeHostIP(node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve node IP: %v", err)
 	}
 
+	glog.V(2).Infof("PHIL getNodeIP: returns: %v", nodeIP)
 	return nodeIP, nil
 }

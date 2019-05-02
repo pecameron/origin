@@ -58,6 +58,7 @@ func (kl *Kubelet) providerRequiresNetworkingConfiguration() bool {
 // from the current CIDR.
 func (kl *Kubelet) updatePodCIDR(cidr string) {
 	podCIDR := kl.runtimeState.podCIDR()
+	glog.V(2).Infof("PHIL updatePodCIDR podCIDR: %v cidr %v", podCIDR, cidr)
 
 	if podCIDR == cidr {
 		return
